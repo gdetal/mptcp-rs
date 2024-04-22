@@ -201,7 +201,7 @@ mod tests {
 
     use std::net::{IpAddr, Ipv4Addr};
 
-    use crate::sys::tests::is_mptcp_enabled;
+    use crate::sys::is_mptcp_enabled;
 
     #[tokio::test]
     async fn test_resolve_each_addr() {

@@ -174,7 +174,7 @@ impl From<MptcpSocket<TcpListener>> for TcpListener {
 mod test {
     use std::net::{IpAddr, Ipv4Addr};
 
-    use crate::sys::tests::is_mptcp_enabled;
+    use crate::sys::is_mptcp_enabled;
 
     use super::*;
 

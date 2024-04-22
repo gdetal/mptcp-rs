@@ -34,9 +34,12 @@ name = "client-async-std"
 required-features = ["async-std"]
 
 [dependencies]
+lazy_static = "1.4.0"
 libc = "0.2.153"
+semver = "1.0.22"
 socket2 = "0.5.6"
 sysctl = "0.5.5"
+sysinfo = "0.30.11"
 
 [dependencies.tokio]
 version = "1"
