@@ -7,11 +7,11 @@ edition = "2021"
 tokio = ["dep:tokio", "dep:async-trait"]
 
 [[example]]
-name = "axum-amiusingmptcp"
+name = "server-tokio"
 required-features = ["tokio"]
 
 [[example]]
-name = "client-amiusingmptcp"
+name = "client-tokio"
 required-features = ["tokio"]
 
 [dependencies]
