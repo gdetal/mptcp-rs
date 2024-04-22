@@ -1,7 +1,11 @@
 [package]
 name = "mptcp"
+description = "A helper crate to create MPTCP sockets"
 version = "0.1.0"
 edition = "2021"
+license-file = "LICENSE"
+readme = "README.md"
+repository = "https://github.com/gdetal/mptcp-rs"
 
 [features]
 default = ["std"]
