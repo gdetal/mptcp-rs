@@ -4,19 +4,53 @@ use tokio::net::{lookup_host, TcpListener, TcpSocket, TcpStream, ToSocketAddrs};
 
 use crate::{sys, MptcpExt, MptcpOpt, MptcpSocket};
 
+/// Extension trait for tokio::net::TcpStream to support MPTCP.
 #[async_trait::async_trait(?Send)]
 pub trait MptcpStreamExt {
     type Output;
 
+    /// Establishes an MPTCP connection with the given address and MptcpOpt.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The address to connect to.
+    /// * `opt` - The MptcpOpt options for the connection.
+    ///
+    /// # Returns
+    ///
+    /// Returns an `io::Result` containing the MptcpSocket if the connection is successful,
+    /// or an `io::Error` if an error occurs during the connection.
     async fn connect_mptcp_opt<A: ToSocketAddrs>(
         addr: A,
         opt: MptcpOpt,
     ) -> io::Result<MptcpSocket<Self::Output>>;
 
+    /// Establishes an MPTCP connection with the given address. If MPTCP cannot be used
+    /// the connection will fallback to a regular TCP connection.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The address to connect to.
+    ///
+    /// # Returns
+    ///
+    /// Returns an `io::Result` containing the MptcpSocket if the connection is successful,
+    /// or an `io::Error` if an error occurs during the connection.
     async fn connect_mptcp<A: ToSocketAddrs>(addr: A) -> io::Result<MptcpSocket<Self::Output>> {
-        Self::connect_mptcp_opt(addr, MptcpOpt::Fallack).await
+        Self::connect_mptcp_opt(addr, MptcpOpt::Fallback).await
     }
 
+    /// Establishes an MPTCP connection with the given address. Returns an error even if
+    /// MPTCP cannot be used. See `connect_mptcp` for a version that falls back to TCP.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The address to connect to.
+    ///
+    /// # Returns
+    ///
+    /// Returns an `io::Result` containing the MptcpSocket if the connection is successful,
+    /// or an `io::Error` if an error occurs during the connection.
     async fn connect_mptcp_force<A: ToSocketAddrs>(addr: A) -> io::Result<Self::Output> {
         Ok(Self::connect_mptcp_opt(addr, MptcpOpt::NoFallback)
             .await?
@@ -24,19 +58,50 @@ pub trait MptcpStreamExt {
     }
 }
 
+/// Extension trait for tokio::net::TcpListener.
 #[async_trait::async_trait(?Send)]
 pub trait MptcpListenerExt {
     type Output;
 
+    /// Binds an MPTCP socket to the specified address with the given MptcpOpt.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The address to bind the socket to.
+    /// * `opt` - The MptcpOpt to use for the socket.
+    ///
+    /// # Returns
+    ///
+    /// Returns an `io::Result` containing the MptcpSocket with the specified MptcpOpt.
     async fn bind_mptcp_opt<A: ToSocketAddrs>(
         addr: A,
         opt: MptcpOpt,
     ) -> io::Result<MptcpSocket<Self::Output>>;
 
+    /// Binds an MPTCP socket to the specified address. If MPTCP cannot be used
+    /// the connection will fallback to a regular TCP connection.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The address to bind the socket to.
+    ///
+    /// # Returns
+    ///
+    /// Returns an `io::Result` containing the MptcpSocket with the default MptcpOpt (Fallback).
     async fn bind_mptcp<A: ToSocketAddrs>(addr: A) -> io::Result<MptcpSocket<Self::Output>> {
-        Self::bind_mptcp_opt(addr, MptcpOpt::Fallack).await
+        Self::bind_mptcp_opt(addr, MptcpOpt::Fallback).await
     }
 
+    /// Binds an MPTCP socket to the specified address. Returns an error even if
+    /// MPTCP cannot be used. See `bind_mptcp` for a version that falls back to TCP.
+    ///
+    /// # Arguments
+    ///
+    /// * `addr` - The address to bind the socket to.
+    ///
+    /// # Returns
+    ///
+    /// Returns an `io::Result` containing the MptcpSocket with the MptcpOpt set to NoFallback.
     async fn bind_mptcp_force<A: ToSocketAddrs>(addr: A) -> io::Result<Self::Output> {
         Ok(Self::bind_mptcp_opt(addr, MptcpOpt::NoFallback)
             .await?
@@ -82,7 +147,7 @@ impl MptcpStreamExt for TcpStream {
     ) -> io::Result<MptcpSocket<Self::Output>> {
         match resolve_each_addr(&addr, connect_mptcp).await {
             Ok(sock) => Ok(MptcpSocket::Mptcp(sock)),
-            Err(_) if matches!(opt, MptcpOpt::Fallack) => {
+            Err(_) if matches!(opt, MptcpOpt::Fallback) => {
                 Ok(MptcpSocket::Tcp(Self::connect(addr).await?))
             }
             Err(err) => Err(err),
@@ -116,7 +181,7 @@ impl MptcpListenerExt for TcpListener {
     ) -> io::Result<MptcpSocket<Self::Output>> {
         match resolve_each_addr(&addr, bind_mptcp).await {
             Ok(sock) => Ok(MptcpSocket::Mptcp(sock)),
-            Err(_) if matches!(opt, MptcpOpt::Fallack) => {
+            Err(_) if matches!(opt, MptcpOpt::Fallback) => {
                 Ok(MptcpSocket::Tcp(Self::bind(addr).await?))
             }
             Err(err) => Err(err),
