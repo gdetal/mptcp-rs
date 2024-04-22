@@ -123,3 +123,69 @@ impl MptcpListenerExt for TcpListener {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::net::{IpAddr, Ipv4Addr};
+
+    use crate::sys::tests::is_mptcp_enabled;
+
+    #[tokio::test]
+    async fn test_resolve_each_addr() {
+        let addr = "127.0.0.1:80";
+        let result = resolve_each_addr(&addr, |addr| async move {
+            assert_eq!(addr.port(), 80);
+            assert_eq!(addr.ip(), IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+            Ok(())
+        })
+        .await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_resolve_each_addr_error() {
+        let addr = "thisisanerror";
+        let result = resolve_each_addr(&addr, |_| async { Ok(()) }).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_mptcp_socket() {
+        let mptcp_enabled = is_mptcp_enabled();
+
+        let listener = TcpListener::bind_mptcp("127.0.0.1:0").await;
+        if mptcp_enabled {
+            assert!(matches!(listener, Ok(MptcpSocket::Mptcp(..))));
+        } else {
+            assert!(matches!(listener, Ok(MptcpSocket::Tcp(..))));
+        }
+
+        let listener = listener.unwrap().into_socket();
+        let local_addr = listener.local_addr().unwrap();
+
+        let stream = TcpStream::connect_mptcp(local_addr).await;
+        if mptcp_enabled {
+            assert!(matches!(stream, Ok(MptcpSocket::Mptcp(..))));
+        } else {
+            assert!(matches!(stream, Ok(MptcpSocket::Tcp(..))));
+        }
+    }
+
+    #[tokio::test]
+    async fn test_mptcp_no_fallback() {
+        let mptcp_enabled = is_mptcp_enabled();
+
+        if mptcp_enabled {
+            // If the system supports MPTCP, we cannot test the no fallback option
+            return;
+        }
+
+        let listener = TcpListener::bind_mptcp_force("127.0.0.1:0").await;
+        assert!(listener.is_err());
+
+        let stream = TcpStream::connect_mptcp_force("127.0.0.1:0").await;
+        assert!(stream.is_err());
+    }
+}
