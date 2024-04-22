@@ -11,7 +11,7 @@ use hyper_util::{
     rt::{TokioExecutor, TokioIo},
     server,
 };
-use mptcp::{tokio::MptcpListenerExt, MptcpExt};
+use mptcp::{tokio::MptcpListenerExt, MptcpExt, MptcpStatus};
 use tokio::net::{TcpListener, TcpStream};
 use tower_service::Service;
 
@@ -22,9 +22,12 @@ struct MptcpInfo {
 
 impl Connected<&TcpStream> for MptcpInfo {
     fn connect_info(sock: &TcpStream) -> Self {
-        Self {
-            use_mptcp: sock.use_mptcp(),
-        }
+        let use_mptcp = match sock.mptcp_status() {
+            MptcpStatus::Mptcp(ref e) if !e.has_fallback => true,
+            _ => false,
+        };
+
+        Self { use_mptcp }
     }
 }
 

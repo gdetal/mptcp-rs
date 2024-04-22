@@ -10,47 +10,60 @@ pub enum MptcpOpt {
     NoFallback,
 }
 
+pub struct MptcpInfoStatus {
+    pub has_fallback: bool,
+}
+
+pub enum MptcpStatus {
+    Tcp,
+    Mptcp(MptcpInfoStatus),
+}
+
 /// A trait for extending the functionality of types that implement `AsRawFd`.
 pub trait MptcpExt: AsRawFd {
-    /// Checks if the socket is using Multipath TCP (MPTCP).
+    /// Returns the MPTCP status of the socket.
     ///
-    /// Returns `true` if the socket is using MPTCP, `false` otherwise.
+    /// If the socket is using MPTCP, it returns `MptcpStatus::Mptcp` along with
+    /// the MPTCP information status. If the socket is not using MPTCP, it returns
+    /// `MptcpStatus::Tcp`.
     ///
     /// # Example
     ///
     /// ```rust
     /// use std::net::TcpStream;
-    /// use mptcp::{MptcpExt, MptcpStreamExt};
+    /// use mptcp::{MptcpExt, MptcpStreamExt, MptcpStatus};
     ///
     /// let stream = TcpStream::connect_mptcp("example.com:80").unwrap();
-    /// println!("Stream is using Mptcp: {}", stream.use_mptcp());
+    ///
+    /// match stream.mptcp_status() {
+    ///     MptcpStatus::Mptcp(info) => {
+    ///         println!("Stream is using MPTCP with fallback: {}", info.has_fallback);
+    ///     }
+    ///     MptcpStatus::Tcp => {
+    ///         println!("Stream is using TCP.");
+    ///     }
+    /// }
     /// ```
     ///
-    fn use_mptcp(&self) -> bool {
-        sys::is_mptcp_socket(self.as_raw_fd())
-    }
-
-    /// Returns whether the socket has fallback to use TCP while being
-    /// created as MPTCP socket.
-    ///
-    /// Note: this only works on Linux kernel versions >= 5.16.
-    ///
-    /// Returns `true` if the socket has fallback, `false` otherwise.
-    ///
-    fn has_fallback(&self) -> bool {
-        sys::has_fallback(self.as_raw_fd())
+    fn mptcp_status(&self) -> MptcpStatus {
+        let fd = self.as_raw_fd();
+        if sys::is_mptcp_socket(fd) {
+            return MptcpStatus::Mptcp(MptcpInfoStatus {
+                has_fallback: sys::has_fallback(fd),
+            });
+        }
+        MptcpStatus::Tcp
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::net::TcpListener;
-    use std::net::TcpStream;
+    use std::net::{TcpListener, TcpStream};
 
-    use crate::ext::MptcpExt;
     use crate::sys::{has_mptcp_info, is_mptcp_enabled};
-    use crate::MptcpSocket;
-    use crate::{MptcpListenerExt, MptcpStreamExt};
+    use crate::{
+        MptcpExt, MptcpInfoStatus, MptcpListenerExt, MptcpSocket, MptcpStatus, MptcpStreamExt,
+    };
 
     #[test]
     fn test_mptcp() {
@@ -70,11 +83,12 @@ mod tests {
 
         let stream = stream.unwrap();
 
-        assert!(stream.use_mptcp());
-        // Can only assert on >= 5.16 kernels
-        if has_mptcp_info() {
-            assert!(!stream.has_fallback());
-        }
+        assert!(matches!(
+            stream.mptcp_status(),
+            MptcpStatus::Mptcp(MptcpInfoStatus {
+                has_fallback: false
+            })
+        ));
     }
 
     #[test]
@@ -95,8 +109,18 @@ mod tests {
 
         let stream = stream.unwrap();
 
-        assert!(stream.use_mptcp());
-        assert!(stream.has_fallback());
+        assert!(matches!(
+            stream.mptcp_status(),
+            MptcpStatus::Mptcp(MptcpInfoStatus { .. })
+        ));
+
+        // Can only assert on >= 5.16 kernels
+        if has_mptcp_info() {
+            assert!(matches!(
+                stream.mptcp_status(),
+                MptcpStatus::Mptcp(MptcpInfoStatus { has_fallback: true })
+            ));
+        }
     }
 
     #[test]
@@ -106,6 +130,6 @@ mod tests {
 
         let stream = TcpStream::connect(local_addr).unwrap();
 
-        assert!(!stream.use_mptcp());
+        assert!(matches!(stream.mptcp_status(), MptcpStatus::Tcp));
     }
 }
