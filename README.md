@@ -9,7 +9,7 @@ The crate currently supports:
  - [x] `std::net::TcpStream` and `std::net::TcpListener`
  - [x] support Linux
  - [x] support [tokio](https://tokio.rs)
- - [ ] support [async-std](https://async.rs)
+ - [x] support [async-std](https://async.rs)
  - [ ] support MacOS
 
 ## Usage
