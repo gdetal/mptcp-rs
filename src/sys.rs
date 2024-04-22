@@ -58,10 +58,7 @@ pub(crate) fn has_fallback(fd: RawFd) -> bool {
 
         unsafe {
             match getsockopt::<libc::c_int>(fd, SOL_MPTCP, MPTCP_INFO) {
-                Err(err) => {
-                    println!("Error: {:?}", err);
-                    true
-                }
+                Err(err) => true,
                 Ok(_) => false,
             }
         }
