@@ -18,9 +18,10 @@ pub trait MptcpExt: AsRawFd {
     ///
     /// Example:
     /// ```rust
-    /// use mptcp::MptcpExt;
+    /// use std::net::TcpStream;
+    /// use mptcp::{MptcpExt, MptcpStreamExt};
     ///
-    /// let stream : TcpStream = /* ... */;
+    /// let stream = TcpStream::connect_mptcp("example.com:80").unwrap();
     /// println!("Stream is using Mptcp: {}", stream.use_mptcp());
     /// ```
     ///

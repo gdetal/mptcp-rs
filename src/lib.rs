@@ -9,14 +9,15 @@
 //! - `tokio` (feature: "tokio"): Provides a Tokio-based implementation for MPTCP.
 //! - `async_std` (feature: "async-std"): Provides an async-std-based implementation for MPTCP.
 //!
-//! Example using Tokio:
+//! Example:
 //!
 //! ```rust
-//! use mptcp_rs::tokio::MptcpStreamExt;
-//! use std::net::SocketAddr;
+//! use mptcp::MptcpStreamExt;
+//! use std::net::{SocketAddr, TcpStream};
+//! use std::io;
 //!
-//! async fn connect(addr: SocketAddress) -> io::Result<TcpStream> {
-//!     TcpStream::connect_mptcp(addr).await.map(|stream| stream.into())
+//! fn connect(addr: SocketAddr) -> io::Result<TcpStream> {
+//!     TcpStream::connect_mptcp(addr).map(|stream| stream.into())
 //! }
 //! ```
 mod ext;
