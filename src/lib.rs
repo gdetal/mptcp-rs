@@ -1,12 +1,14 @@
 #![allow(dead_code)]
 
 mod socket;
-mod std;
 mod sys;
-mod traits;
 
 pub use socket::*;
-pub use traits::*;
+
+#[cfg(feature = "std")]
+mod std;
+#[cfg(feature = "std")]
+pub use std::*;
 
 #[cfg(feature = "tokio")]
 pub mod tokio;

@@ -4,8 +4,18 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+default = ["std"]
+std = []
 tokio = ["dep:tokio", "dep:async-trait"]
 async-std = ["dep:async-std", "dep:async-trait"]
+
+[[example]]
+name = "server-std"
+required-features = ["std"]
+
+[[example]]
+name = "client-std"
+required-features = ["std"]
 
 [[example]]
 name = "server-tokio"
