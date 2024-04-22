@@ -23,7 +23,9 @@ struct MptcpInfo {
 impl Connected<&TcpStream> for MptcpInfo {
     fn connect_info(sock: &TcpStream) -> Self {
         let use_mptcp = match sock.mptcp_status() {
-            MptcpStatus::Mptcp(ref e) if !e.has_fallback => true,
+            MptcpStatus::Mptcp {
+                has_fallback: false,
+            } => true,
             _ => false,
         };
 

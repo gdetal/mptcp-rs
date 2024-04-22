@@ -45,10 +45,10 @@ sockets.
 You can also check whether a `TcpStream` uses an underlying MPTCP socket using:
 
 ```rust
-use mptcp::MptcpExt;
+use mptcp::{MptcpExt, MptcpStatus};
 
 let stream : TcpStream = ...;
-println!("stream uses mptcp: {}", stream.use_mptcp());
+println!("stream uses mptcp: {}", matches!(stream.mptcp_status(), MptcpStatus::Mptcp { .. }));
 ```
 
 Tokio support can be enabled via feature: `tokio`. Usage is similar for std lib

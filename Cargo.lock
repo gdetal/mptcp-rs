@@ -1052,7 +1052,7 @@ dependencies = [
 
 [[package]]
 name = "mptcp"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "async-h1",
  "async-std",

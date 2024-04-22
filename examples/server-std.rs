@@ -10,7 +10,7 @@ use mptcp::{MptcpExt, MptcpListenerExt, MptcpStatus};
 fn handle_client(mut stream: TcpStream) {
     println!("handle_client()");
 
-    let text = if let MptcpStatus::Mptcp(..) = stream.mptcp_status() {
+    let text = if let MptcpStatus::Mptcp { .. } = stream.mptcp_status() {
         "You are using MPTCP\n\r"
     } else {
         "You are not using MPTCP\n\r"
