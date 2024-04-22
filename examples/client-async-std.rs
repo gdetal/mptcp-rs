@@ -18,7 +18,7 @@ async fn main() {
 
     let address = format!("{}:{}", host, port);
 
-    let client = TcpStream::connect(address).await.unwrap().into_socket();
+    let client: TcpStream = TcpStream::connect_mptcp(address).await.unwrap().into();
 
     let req = Request::new(Method::Get, url);
     let mut res = client::connect(client, req).await.unwrap();

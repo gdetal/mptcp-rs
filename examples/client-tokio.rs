@@ -19,9 +19,9 @@ async fn main() {
 
     let address = format!("{}:{}", host, port);
 
-    let client = TcpStream::connect_mptcp(address).await.unwrap();
+    let client: TcpStream = TcpStream::connect_mptcp(address).await.unwrap().into();
 
-    let io = TokioIo::new(client.into_socket());
+    let io = TokioIo::new(client);
 
     let (mut sender, conn) = hyper::client::conn::http1::handshake(io).await.unwrap();
     tokio::task::spawn(async move {

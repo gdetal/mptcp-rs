@@ -90,6 +90,12 @@ impl MptcpStreamExt for TcpStream {
 
 impl MptcpExt for TcpStream {}
 
+impl From<MptcpSocket<TcpStream>> for TcpStream {
+    fn from(socket: MptcpSocket<TcpStream>) -> Self {
+        socket.into_socket()
+    }
+}
+
 impl MptcpListenerExt for TcpListener {
     type Output = Self;
 
@@ -102,6 +108,12 @@ impl MptcpListenerExt for TcpListener {
             Err(_) if matches!(opt, MptcpOpt::Fallack) => Ok(MptcpSocket::Tcp(Self::bind(addr)?)),
             Err(err) => Err(err),
         }
+    }
+}
+
+impl From<MptcpSocket<TcpListener>> for TcpListener {
+    fn from(socket: MptcpSocket<TcpListener>) -> Self {
+        socket.into_socket()
     }
 }
 

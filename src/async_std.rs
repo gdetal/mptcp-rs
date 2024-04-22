@@ -97,6 +97,12 @@ impl MptcpStreamExt for TcpStream {
 
 impl MptcpExt for TcpStream {}
 
+impl From<MptcpSocket<TcpStream>> for TcpStream {
+    fn from(socket: MptcpSocket<TcpStream>) -> Self {
+        socket.into_socket()
+    }
+}
+
 async fn bind_mptcp(addr: SocketAddr) -> io::Result<TcpListener> {
     let socket = sys::mptcp_socket_for_addr(addr)?;
     socket.set_nonblocking(true)?;
@@ -121,6 +127,12 @@ impl MptcpListenerExt for TcpListener {
             }
             Err(err) => Err(err),
         }
+    }
+}
+
+impl From<MptcpSocket<TcpListener>> for TcpListener {
+    fn from(socket: MptcpSocket<TcpListener>) -> Self {
+        socket.into_socket()
     }
 }
 
