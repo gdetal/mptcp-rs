@@ -8,7 +8,7 @@ The crate currently supports:
 
  - [x] `std::net::TcpStream` and `std::net::TcpListener`
  - [x] support Linux
- - [ ] support [tokio](https://tokio.rs)
+ - [x] support [tokio](https://tokio.rs)
  - [ ] support [async-std](https://async.rs)
  - [ ] support MacOS
 
@@ -50,6 +50,9 @@ use mptcp::MptcpExt;
 let stream : TcpStream = ...;
 println!("stream uses mptcp: {}", stream.use_mptcp());
 ```
+
+Tokio support can be enabled via feature: `tokio`. Usage is similar for std lib
+by importing `mptcp::tokio::MptcpStreamExt`.
 
 ## License
 

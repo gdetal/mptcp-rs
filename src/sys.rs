@@ -30,10 +30,14 @@ pub(crate) fn is_mptcp_socket(fd: RawFd) -> bool {
 
 pub(crate) fn mptcp_socket(domain: Domain) -> io::Result<Socket> {
     if cfg!(target_os = "linux") {
-        Socket::new_raw(domain, Type::STREAM, Some(Protocol::MPTCP))
+        Socket::new(domain, Type::STREAM, Some(Protocol::MPTCP))
     } else {
         Err(ErrorKind::Unsupported.into())
     }
+}
+
+pub(crate) fn mptcp_socket_for_addr(addr: SocketAddr) -> io::Result<Socket> {
+    mptcp_socket(Domain::for_address(addr))
 }
 
 pub(crate) fn mptcp_connect(addr: SocketAddr) -> io::Result<Socket> {
