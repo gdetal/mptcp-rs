@@ -174,7 +174,7 @@ impl From<MptcpSocket<TcpListener>> for TcpListener {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 mod test {
     use std::net::{IpAddr, Ipv4Addr};
 

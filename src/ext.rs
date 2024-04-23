@@ -52,7 +52,7 @@ pub trait MptcpExt: AsRawFd + Sized {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 mod tests {
     use std::net::{TcpListener, TcpStream};
 
