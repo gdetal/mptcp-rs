@@ -10,6 +10,7 @@ pub enum MptcpOpt {
     NoFallback,
 }
 
+#[derive(Debug)]
 pub enum MptcpStatus {
     Tcp,
     Mptcp { has_fallback: bool },

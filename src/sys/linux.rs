@@ -118,13 +118,7 @@ pub(crate) fn has_mptcp_info() -> bool {
 }
 
 pub(crate) fn is_mptcp_enabled() -> bool {
-    let ctl = if cfg!(target_os = "linux") {
-        sysctl::Ctl::new("net.mptcp.enabled")
-    } else {
-        return false;
-    };
-
-    if let Ok(ctl) = ctl {
+    if let Ok(ctl) = sysctl::Ctl::new("net.mptcp.enabled") {
         if let Ok(val) = ctl.value() {
             if let Some(val) = val.as_string() {
                 return val == "1";
