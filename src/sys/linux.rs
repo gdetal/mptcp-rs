@@ -5,16 +5,10 @@ use std::{
     os::fd::{AsRawFd, RawFd},
 };
 
-use semver::{Version, VersionReq};
+use semver::Version;
 use socket2::{Domain, Protocol, Socket, Type};
 use sysctl::Sysctl;
 use sysinfo::System;
-
-lazy_static::lazy_static! {
-    static ref KERNEL_VERSION_REQ: VersionReq = {
-        VersionReq::parse(">=5.16").unwrap()
-    };
-}
 
 #[derive(Debug)]
 pub struct MptcpSocketBuilder(Socket);
@@ -137,7 +131,7 @@ unsafe fn getsockopt<T>(fd: RawFd, opt: libc::c_int, val: libc::c_int) -> io::Re
 pub(crate) fn has_mptcp_info() -> bool {
     if let Some(ver) = System::kernel_version() {
         if let Ok(version) = Version::parse(&ver) {
-            return KERNEL_VERSION_REQ.matches(&version);
+            return version.major > 5 || (version.major == 5 && version.minor >= 16);
         }
     }
 
