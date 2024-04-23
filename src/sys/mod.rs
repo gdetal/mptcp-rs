@@ -4,8 +4,14 @@ mod linux;
 #[cfg(target_os = "linux")]
 pub use linux::*;
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod darwin;
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub use darwin::*;
+
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "linux")))]
 mod other;
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(any(target_os = "macos", target_os = "ios", target_os = "linux")))]
 pub use other::*;

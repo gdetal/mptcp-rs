@@ -10,7 +10,7 @@ The crate currently supports:
  - [x] support Linux
  - [x] support [tokio](https://tokio.rs)
  - [x] support [async-std](https://async.rs)
- - [ ] support MacOS
+ - [x] support MacOS (TcpStream only)
 
 ## Usage
 
