@@ -22,12 +22,12 @@ struct MptcpInfo {
 
 impl Connected<&TcpStream> for MptcpInfo {
     fn connect_info(sock: &TcpStream) -> Self {
-        let use_mptcp = match sock.mptcp_status() {
+        let use_mptcp = matches!(
+            sock.mptcp_status(),
             MptcpStatus::Mptcp {
                 has_fallback: false,
-            } => true,
-            _ => false,
-        };
+            }
+        );
 
         Self { use_mptcp }
     }

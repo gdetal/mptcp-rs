@@ -40,5 +40,5 @@ async fn main() {
             std::io::stdout().write_all(chunk).unwrap();
         }
     }
-    println!("");
+    println!();
 }
