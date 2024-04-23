@@ -1,8 +1,8 @@
-use std::{future::Future, io, net::SocketAddr};
+use std::{io, net::SocketAddr};
 
 use async_std::net::{TcpListener, TcpStream, ToSocketAddrs};
 
-use crate::{sys, MptcpExt, MptcpOpt, MptcpSocket};
+use crate::{sys::MptcpSocketBuilder, MptcpExt, MptcpOpt, MptcpSocket};
 
 /// Extension trait for async_std::net::TcpStream to support MPTCP.
 #[async_trait::async_trait(?Send)]
@@ -109,15 +109,14 @@ pub trait MptcpListenerExt {
     }
 }
 
-async fn resolve_each_addr<A: ToSocketAddrs, F, Fut, T>(addr: &A, mut f: F) -> io::Result<T>
+async fn resolve_each_addr<A: ToSocketAddrs, F, T>(addr: &A, mut f: F) -> io::Result<T>
 where
-    F: FnMut(SocketAddr) -> Fut,
-    Fut: Future<Output = io::Result<T>>,
+    F: FnMut(SocketAddr) -> io::Result<T>,
 {
     let addrs = addr.to_socket_addrs().await?;
     let mut last_err = None;
     for addr in addrs {
-        match f(addr).await {
+        match f(addr) {
             Ok(l) => return Ok(l),
             Err(e) => last_err = Some(e),
         }
@@ -130,18 +129,6 @@ where
     }))
 }
 
-async fn connect_mptcp(addr: SocketAddr) -> io::Result<TcpStream> {
-    let socket = sys::mptcp_socket_for_addr(addr)?;
-    socket.set_nonblocking(true)?;
-    let r = socket.connect(&addr.into());
-    match r.map_err(|e| (e.raw_os_error(), e)) {
-        Err((Some(errno), err)) if errno != libc::EINPROGRESS => return Err(err),
-        _ => {}
-    }
-    let socket: std::net::TcpStream = socket.into();
-    Ok(socket.into())
-}
-
 #[async_trait::async_trait(?Send)]
 impl MptcpStreamExt for TcpStream {
     type Output = Self;
@@ -150,8 +137,15 @@ impl MptcpStreamExt for TcpStream {
         addr: A,
         opt: MptcpOpt,
     ) -> io::Result<MptcpSocket<Self::Output>> {
-        match resolve_each_addr(&addr, connect_mptcp).await {
-            Ok(sock) => Ok(MptcpSocket::Mptcp(sock)),
+        match resolve_each_addr(&addr, |addr| {
+            MptcpSocketBuilder::new_for_addr(addr)?
+                .set_nonblocking()?
+                .connect(addr)
+                .map::<std::net::TcpStream, _>(|s| s.into())
+        })
+        .await
+        {
+            Ok(sock) => Ok(MptcpSocket::Mptcp(sock.into())),
             Err(_) if matches!(opt, MptcpOpt::Fallback) => {
                 Ok(MptcpSocket::Tcp(Self::connect(addr).await?))
             }
@@ -168,15 +162,6 @@ impl From<MptcpSocket<TcpStream>> for TcpStream {
     }
 }
 
-async fn bind_mptcp(addr: SocketAddr) -> io::Result<TcpListener> {
-    let socket = sys::mptcp_socket_for_addr(addr)?;
-    socket.set_nonblocking(true)?;
-    socket.bind(&addr.into())?;
-    socket.listen(0)?;
-    let socket: std::net::TcpListener = socket.into();
-    Ok(socket.into())
-}
-
 #[async_trait::async_trait(?Send)]
 impl MptcpListenerExt for TcpListener {
     type Output = Self;
@@ -185,8 +170,15 @@ impl MptcpListenerExt for TcpListener {
         addr: A,
         opt: MptcpOpt,
     ) -> io::Result<MptcpSocket<Self::Output>> {
-        match resolve_each_addr(&addr, bind_mptcp).await {
-            Ok(sock) => Ok(MptcpSocket::Mptcp(sock)),
+        match resolve_each_addr(&addr, |addr| {
+            MptcpSocketBuilder::new_for_addr(addr)?
+                .set_nonblocking()?
+                .bind(addr)
+                .map::<std::net::TcpListener, _>(|s| s.into())
+        })
+        .await
+        {
+            Ok(sock) => Ok(MptcpSocket::Mptcp(sock.into())),
             Err(_) if matches!(opt, MptcpOpt::Fallback) => {
                 Ok(MptcpSocket::Tcp(Self::bind(addr).await?))
             }
@@ -212,7 +204,7 @@ mod tests {
     #[tokio::test]
     async fn test_resolve_each_addr() {
         let addr = "127.0.0.1:80";
-        let result = resolve_each_addr(&addr, |addr| async move {
+        let result = resolve_each_addr(&addr, |addr| {
             assert_eq!(addr.port(), 80);
             assert_eq!(addr.ip(), IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
             Ok(())
@@ -224,7 +216,7 @@ mod tests {
     #[tokio::test]
     async fn test_resolve_each_addr_error() {
         let addr = "thisisanerror";
-        let result = resolve_each_addr(&addr, |_| async { Ok(()) }).await;
+        let result = resolve_each_addr(&addr, |_| Ok(())).await;
         assert!(result.is_err());
     }
 

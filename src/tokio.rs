@@ -1,8 +1,12 @@
-use std::{future::Future, io, net::SocketAddr};
+use std::{
+    future::{poll_fn, Future},
+    io,
+    net::SocketAddr,
+};
 
-use tokio::net::{lookup_host, TcpListener, TcpSocket, TcpStream, ToSocketAddrs};
+use tokio::net::{lookup_host, TcpListener, TcpStream, ToSocketAddrs};
 
-use crate::{sys, MptcpExt, MptcpOpt, MptcpSocket};
+use crate::{sys::MptcpSocketBuilder, MptcpExt, MptcpOpt, MptcpSocket};
 
 /// Extension trait for tokio::net::TcpStream to support MPTCP.
 #[async_trait::async_trait(?Send)]
@@ -130,13 +134,6 @@ where
     }))
 }
 
-async fn connect_mptcp(addr: SocketAddr) -> io::Result<TcpStream> {
-    let socket = sys::mptcp_socket_for_addr(addr)?;
-    socket.set_nonblocking(true)?;
-    let socket = TcpSocket::from_std_stream(socket.into());
-    socket.connect(addr).await
-}
-
 #[async_trait::async_trait(?Send)]
 impl MptcpStreamExt for TcpStream {
     type Output = Self;
@@ -145,7 +142,17 @@ impl MptcpStreamExt for TcpStream {
         addr: A,
         opt: MptcpOpt,
     ) -> io::Result<MptcpSocket<Self::Output>> {
-        match resolve_each_addr(&addr, connect_mptcp).await {
+        match resolve_each_addr(&addr, |addr| async move {
+            let sock = MptcpSocketBuilder::new_for_addr(addr)?
+                .set_nonblocking()?
+                .connect(addr)
+                .and_then(|sock| TcpStream::from_std(sock.into()))?;
+            // Wait for the socket to be writable
+            poll_fn(|cx| sock.poll_write_ready(cx)).await?;
+            Ok(sock)
+        })
+        .await
+        {
             Ok(sock) => Ok(MptcpSocket::Mptcp(sock)),
             Err(_) if matches!(opt, MptcpOpt::Fallback) => {
                 Ok(MptcpSocket::Tcp(Self::connect(addr).await?))
@@ -163,14 +170,6 @@ impl From<MptcpSocket<TcpStream>> for TcpStream {
     }
 }
 
-async fn bind_mptcp(addr: SocketAddr) -> io::Result<TcpListener> {
-    let socket = sys::mptcp_socket_for_addr(addr)?;
-    socket.set_nonblocking(true)?;
-    socket.bind(&addr.into())?;
-    let socket = TcpSocket::from_std_stream(socket.into());
-    socket.listen(0)
-}
-
 #[async_trait::async_trait(?Send)]
 impl MptcpListenerExt for TcpListener {
     type Output = Self;
@@ -179,7 +178,14 @@ impl MptcpListenerExt for TcpListener {
         addr: A,
         opt: MptcpOpt,
     ) -> io::Result<MptcpSocket<Self::Output>> {
-        match resolve_each_addr(&addr, bind_mptcp).await {
+        match resolve_each_addr(&addr, |addr| async move {
+            MptcpSocketBuilder::new_for_addr(addr)?
+                .set_nonblocking()?
+                .bind(addr)
+                .and_then(|sock| TcpListener::from_std(sock.into()))
+        })
+        .await
+        {
             Ok(sock) => Ok(MptcpSocket::Mptcp(sock)),
             Err(_) if matches!(opt, MptcpOpt::Fallback) => {
                 Ok(MptcpSocket::Tcp(Self::bind(addr).await?))

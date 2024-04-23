@@ -1,6 +1,6 @@
 use std::os::fd::AsRawFd;
 
-use crate::sys;
+use crate::sys::MptcpSocketRef;
 
 /// Represents whether to fallback to TCP in case MPTCP isn't available.
 pub enum MptcpOpt {
@@ -16,7 +16,7 @@ pub enum MptcpStatus {
 }
 
 /// A trait for extending the functionality of types that implement `AsRawFd`.
-pub trait MptcpExt: AsRawFd {
+pub trait MptcpExt: AsRawFd + Sized {
     /// Returns the MPTCP status of the socket.
     ///
     /// If the socket is using MPTCP, it returns `MptcpStatus::Mptcp` along with
@@ -42,10 +42,10 @@ pub trait MptcpExt: AsRawFd {
     /// ```
     ///
     fn mptcp_status(&self) -> MptcpStatus {
-        let fd = self.as_raw_fd();
-        if sys::is_mptcp_socket(fd) {
+        let sock: MptcpSocketRef<'_, _> = self.into();
+        if sock.is_mptcp_socket() {
             return MptcpStatus::Mptcp {
-                has_fallback: sys::has_fallback(fd),
+                has_fallback: sock.has_fallback(),
             };
         }
         MptcpStatus::Tcp

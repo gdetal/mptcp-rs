@@ -3,7 +3,7 @@ use std::{
     net::{SocketAddr, TcpListener, TcpStream, ToSocketAddrs},
 };
 
-use crate::{sys, MptcpExt, MptcpOpt, MptcpSocket};
+use crate::{sys::MptcpSocketBuilder, MptcpExt, MptcpOpt, MptcpSocket};
 
 /// Extension trait for std::net::TcpStream to support MPTCP.
 pub trait MptcpStreamExt {
@@ -131,7 +131,9 @@ impl MptcpStreamExt for TcpStream {
         addr: A,
         opt: MptcpOpt,
     ) -> io::Result<MptcpSocket<Self::Output>> {
-        match resolve_each_addr(&addr, sys::mptcp_connect) {
+        match resolve_each_addr(&addr, |addr| {
+            MptcpSocketBuilder::new_for_addr(addr)?.connect(addr)
+        }) {
             Ok(sock) => Ok(MptcpSocket::Mptcp(sock.into())),
             Err(_) if matches!(opt, MptcpOpt::Fallback) => {
                 Ok(MptcpSocket::Tcp(Self::connect(addr)?))
@@ -156,7 +158,9 @@ impl MptcpListenerExt for TcpListener {
         addr: A,
         opt: MptcpOpt,
     ) -> io::Result<MptcpSocket<Self::Output>> {
-        match resolve_each_addr(&addr, sys::mptcp_bind) {
+        match resolve_each_addr(&addr, |addr| {
+            MptcpSocketBuilder::new_for_addr(addr)?.bind(addr)
+        }) {
             Ok(sock) => Ok(MptcpSocket::Mptcp(sock.into())),
             Err(_) if matches!(opt, MptcpOpt::Fallback) => Ok(MptcpSocket::Tcp(Self::bind(addr)?)),
             Err(err) => Err(err),
