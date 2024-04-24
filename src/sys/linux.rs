@@ -10,6 +10,10 @@ use socket2::{Domain, Protocol, Socket, Type};
 use sysctl::Sysctl;
 use sysinfo::System;
 
+lazy_static::lazy_static! {
+    static ref KERNEL_VERSION : Option<Version> = System::kernel_version().and_then(|v| Version::parse(&v).ok());
+}
+
 #[derive(Debug)]
 pub struct MptcpSocketBuilder(Socket);
 
@@ -129,13 +133,10 @@ unsafe fn getsockopt<T>(fd: RawFd, opt: libc::c_int, val: libc::c_int) -> io::Re
 }
 
 pub(crate) fn has_mptcp_info() -> bool {
-    if let Some(ver) = System::kernel_version() {
-        if let Ok(version) = Version::parse(&ver) {
-            return version.major > 5 || (version.major == 5 && version.minor >= 16);
-        }
+    match KERNEL_VERSION.as_ref() {
+        Some(version) => version.major > 5 || (version.major == 5 && version.minor >= 16),
+        None => false,
     }
-
-    false
 }
 
 pub(crate) fn is_mptcp_enabled() -> bool {
