@@ -114,6 +114,10 @@ struct MptcpInfo {
     mptcpi_bytes_received: u64,
     mptcpi_bytes_acked: u64,
     mptcpi_subflows_total: u8,
+    reserved: [u8; 3],
+    mptcpi_last_data_sent: u32,
+    mptcpi_last_data_recv: u32,
+    mptcpi_last_ack_recv: u32,
 }
 
 impl<'a, S> From<&'a S> for MptcpSocketRef<'a, S> {
