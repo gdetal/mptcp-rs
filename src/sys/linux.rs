@@ -5,15 +5,13 @@ use std::{
     os::fd::{AsRawFd, RawFd},
 };
 
-use semver::{Version, VersionReq};
+use semver::Version;
 use socket2::{Domain, Protocol, Socket, Type};
 use sysctl::Sysctl;
 use sysinfo::System;
 
 lazy_static::lazy_static! {
-    static ref KERNEL_VERSION_REQ: VersionReq = {
-        VersionReq::parse(">=5.16").unwrap()
-    };
+    static ref KERNEL_VERSION : Option<Version> = System::kernel_version().and_then(|v| Version::parse(&v).ok());
 }
 
 #[derive(Debug)]
@@ -78,17 +76,48 @@ impl<'a, S: AsRawFd> MptcpSocketRef<'a, S> {
     pub fn has_fallback(&self) -> bool {
         const SOL_MPTCP: libc::c_int = 0x11c;
         const MPTCP_INFO: libc::c_int = 0x1;
+        const MPTCP_INFO_FLAG_FALLBACK: u32 = 0x1 << 0;
 
         if !has_mptcp_info() {
             return !self.is_mptcp_socket();
         }
 
-        unsafe {
-            getsockopt::<libc::c_int>(self.0.as_raw_fd(), SOL_MPTCP, MPTCP_INFO)
-                .ok()
-                .is_some()
+        match unsafe { getsockopt::<MptcpInfo>(self.0.as_raw_fd(), SOL_MPTCP, MPTCP_INFO) } {
+            // Error means that it is not using MPTCP:
+            Err(_) => true,
+            // Could be an MPTCP connection that has latter fallback to TCP:
+            Ok(info) => info.mptcpi_flags & MPTCP_INFO_FLAG_FALLBACK != 0,
         }
     }
+}
+
+#[derive(Debug)]
+#[repr(C)]
+struct MptcpInfo {
+    mptcpi_subflows: u8,
+    mptcpi_add_addr_signal: u8,
+    mptcpi_add_addr_accepted: u8,
+    mptcpi_subflows_max: u8,
+    mptcpi_add_addr_signal_max: u8,
+    mptcpi_add_addr_accepted_max: u8,
+    mptcpi_flags: u32,
+    mptcpi_token: u32,
+    mptcpi_write_seq: u64,
+    mptcpi_snd_una: u64,
+    mptcpi_rcv_nxt: u64,
+    mptcpi_local_addr_used: u8,
+    mptcpi_local_addr_max: u8,
+    mptcpi_csum_enabled: u8,
+    mptcpi_retransmits: u32,
+    mptcpi_bytes_retrans: u64,
+    mptcpi_bytes_sent: u64,
+    mptcpi_bytes_received: u64,
+    mptcpi_bytes_acked: u64,
+    mptcpi_subflows_total: u8,
+    reserved: [u8; 3],
+    mptcpi_last_data_sent: u32,
+    mptcpi_last_data_recv: u32,
+    mptcpi_last_ack_recv: u32,
 }
 
 impl<'a, S> From<&'a S> for MptcpSocketRef<'a, S> {
@@ -108,13 +137,10 @@ unsafe fn getsockopt<T>(fd: RawFd, opt: libc::c_int, val: libc::c_int) -> io::Re
 }
 
 pub(crate) fn has_mptcp_info() -> bool {
-    if let Some(ver) = System::kernel_version() {
-        if let Ok(version) = Version::parse(&ver) {
-            return KERNEL_VERSION_REQ.matches(&version);
-        }
+    match KERNEL_VERSION.as_ref() {
+        Some(version) => version.major > 5 || (version.major == 5 && version.minor >= 16),
+        None => false,
     }
-
-    false
 }
 
 pub(crate) fn is_mptcp_enabled() -> bool {
