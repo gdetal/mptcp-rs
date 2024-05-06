@@ -76,17 +76,16 @@ impl<'a, S: AsRawFd> MptcpSocketRef<'a, S> {
     pub fn has_fallback(&self) -> bool {
         const SOL_MPTCP: libc::c_int = 0x11c;
         const MPTCP_INFO: libc::c_int = 0x1;
-        const MPTCP_INFO_FLAG_FALLBACK: u32 = 0x1 << 0;
 
         if !has_mptcp_info() {
+            // doesn't work for the client side and fallback after established
             return !self.is_mptcp_socket();
         }
 
-        match unsafe { getsockopt::<MptcpInfo>(self.0.as_raw_fd(), SOL_MPTCP, MPTCP_INFO) } {
-            // Error means that it is not using MPTCP:
-            Err(_) => true,
-            // Could be an MPTCP connection that has latter fallback to TCP:
-            Ok(info) => info.mptcpi_flags & MPTCP_INFO_FLAG_FALLBACK != 0,
+        unsafe {
+            // We could use a buffer of size 0 here
+            getsockopt::<libc::c_int>(self.0.as_raw_fd(), SOL_MPTCP, MPTCP_INFO)
+                .is_err()
         }
     }
 }
